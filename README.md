@@ -95,7 +95,11 @@ Modern browsers with ES6+ support:
 - Firefox 88+
 - Safari 14+
 
-**Note**: Browser-based downloads are subject to CORS policies. Some CDN content may require specific headers or may not be accessible due to CORS restrictions.
+## Known Limitations
+
+- **CORS Restrictions**: Browser-based downloads are subject to CORS (Cross-Origin Resource Sharing) policies. Some CDN content may require specific headers or may not be accessible due to CORS restrictions. This is a browser security limitation.
+- **Download Location**: Videos are downloaded to your browser's default download folder and cannot be customized through the web application.
+- **Session Persistence**: Queue state is not persisted across browser sessions. Refreshing the page will clear the queue.
 
 ## License
 
