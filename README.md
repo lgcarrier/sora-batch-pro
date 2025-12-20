@@ -13,6 +13,10 @@ A high-performance batch downloader for Sora videos featuring concurrent downloa
 - **⚡ Batch Operations**: Execute, abort, and clear queue operations
 - **📤 Export Failed URLs**: Easy copy-to-clipboard for failed download URLs
 
+## Demo
+
+![Batch Download Walkthrough](docs/images/demo.webp)
+
 ## Prerequisites
 
 - **Node.js** (v16 or higher recommended)
