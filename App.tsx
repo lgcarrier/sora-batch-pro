@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { 
   Download, 
   AlertCircle, 
@@ -12,13 +12,11 @@ import {
   RefreshCw,
   Copy,
   ExternalLink,
-  Sparkles,
   Zap,
   Terminal,
   Settings2
 } from 'lucide-react';
 import { QueueItem, DownloadStatus } from './types';
-import { analyzeBatchMetadata } from './services/geminiService';
 
 const DYYSY_CDN_BASE = "https://oscdn2.dyysy.com/MP4";
 
@@ -26,7 +24,6 @@ const App: React.FC = () => {
   const [rawInput, setRawInput] = useState("");
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [logs, setLogs] = useState<{msg: string, time: string}[]>([]);
   const [concurrentLimit, setConcurrentLimit] = useState(3);
   
@@ -70,28 +67,7 @@ const App: React.FC = () => {
     }
   };
 
-  const startAIAnalysis = async () => {
-    const pendingIds = queue.filter(item => !item.aiTag).map(item => item.id);
-    if (pendingIds.length === 0) return;
-
-    setIsAnalyzing(true);
-    addLog("Consulting Gemini AI for video metadata...");
-    
-    const tagsMap = await analyzeBatchMetadata(pendingIds.slice(0, 10)); // Analyze first 10 for demo speed
-    
-    if (tagsMap) {
-      setQueue(prev => prev.map(item => ({
-        ...item,
-        aiTag: tagsMap[item.id] || item.aiTag
-      })));
-      addLog("AI Analysis complete. Queue tagged.");
-    } else {
-      addLog("AI analysis failed or API key missing.");
-    }
-    setIsAnalyzing(false);
-  };
-
-  const downloadFile = async (item: QueueItem, index: number) => {
+  const downloadFile = async (item: QueueItem) => {
     const updateStatus = (status: DownloadStatus, error?: string) => {
       setQueue(prev => {
         const next = [...prev];
@@ -114,7 +90,7 @@ const App: React.FC = () => {
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
-      a.download = `Sora_${item.aiTag ? item.aiTag.replace(/\s+/g, '_') + '_' : ''}${item.id}.mp4`;
+      a.download = `Sora_${item.id}.mp4`;
       document.body.appendChild(a);
       a.click();
       
@@ -135,16 +111,6 @@ const App: React.FC = () => {
     addLog("Batch download sequence initiated.");
 
     while (processingRef.current) {
-      const currentQueue = await new Promise<QueueItem[]>(r => {
-        // We need the most recent state. Using a small timeout or just relying on closures 
-        // is tricky in React, but since we are within the component, we can use a functional update 
-        // to check status or just grab it from a ref if we had one.
-        // For simplicity, we'll use a local loop that looks at the state.
-        r(queue); 
-      });
-
-      // Find all items that are pending or need retry
-      // Because state is async, we use a more robust check
       let activeTasks = 0;
       let pendingIndex = -1;
 
@@ -154,7 +120,6 @@ const App: React.FC = () => {
         return q;
       });
 
-      // Break if nothing left
       const hasWork = await new Promise<boolean>(resolve => {
         setQueue(q => {
           const stillWorking = q.some(i => i.status === 'pending' || i.status === 'processing');
@@ -166,7 +131,6 @@ const App: React.FC = () => {
       if (!hasWork) break;
 
       if (activeTasks < concurrentLimit && pendingIndex !== -1) {
-        // Safety: ensure we don't start the same item twice
         const target = await new Promise<QueueItem | undefined>(resolve => {
             setQueue(q => {
                 const item = q.find(i => i.status === 'pending');
@@ -176,7 +140,7 @@ const App: React.FC = () => {
         });
 
         if (target) {
-          downloadFile(target, pendingIndex);
+          downloadFile(target);
         }
       }
 
@@ -209,7 +173,7 @@ const App: React.FC = () => {
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
-              SoraBatch <span className="text-blue-500 font-light italic">AI Pro</span>
+              SoraBatch <span className="text-blue-500 font-light italic">Pro</span>
             </h1>
             <p className="text-slate-400 text-sm font-medium">Professional bulk video acquisition tool</p>
           </div>
@@ -224,17 +188,9 @@ const App: React.FC = () => {
               onChange={(e) => setConcurrentLimit(Number(e.target.value))}
               className="bg-transparent text-blue-400 font-bold focus:outline-none cursor-pointer"
             >
-              {[1, 2, 3, 4, 5, 8].map(n => <option key={n} value={n} className="bg-slate-900">{n}</option>)}
+              {[1, 2, 3, 4, 5, 8, 16].map(n => <option key={n} value={n} className="bg-slate-900">{n}</option>)}
             </select>
           </div>
-          <button 
-            onClick={startAIAnalysis}
-            disabled={isAnalyzing || queue.length === 0}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white px-4 py-2 rounded-xl transition-all shadow-lg shadow-indigo-900/20 text-sm font-semibold"
-          >
-            {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            AI Smart-Tag
-          </button>
         </div>
       </header>
 
@@ -403,11 +359,6 @@ const App: React.FC = () => {
                           <div className="flex items-center gap-3">
                             <h4 className="font-mono font-bold text-sm text-slate-100 truncate flex items-center gap-2">
                               {item.id}
-                              {item.aiTag && (
-                                <span className="bg-indigo-500/20 text-indigo-400 text-[9px] px-1.5 py-0.5 rounded border border-indigo-500/30 uppercase font-bold tracking-wider">
-                                  {item.aiTag}
-                                </span>
-                              )}
                             </h4>
                             <a href={item.originalUrl} target="_blank" rel="noreferrer" className="text-slate-600 hover:text-blue-400 transition-colors">
                               <ExternalLink className="w-3.5 h-3.5" />

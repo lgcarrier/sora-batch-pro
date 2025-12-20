@@ -7,7 +7,6 @@ export interface QueueItem {
   cdnUrl: string;
   status: DownloadStatus;
   errorMessage?: string;
-  aiTag?: string;
   timestamp: number;
 }
 
