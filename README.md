@@ -63,6 +63,23 @@ A high-performance batch downloader for Sora videos featuring concurrent downloa
    - Check the System Console for detailed activity logs
    - View success/error counts in the queue header
 
+## Headless CLI Usage
+
+For automated bulk downloading without the web interface, use the headless mode:
+
+1. **Prepare Input File**:
+   Create or edit `sora_movies.txt` in the project root. Add one Sora URL per line.
+
+2. **Run Downloader**:
+   ```bash
+   npm run download:headless
+   ```
+
+3. **Output**:
+   - Videos are saved to the `downloads/` directory
+   - Detailed progress and errors are shown in the terminal
+   - Existing files are automatically skipped
+
 ## Building for Production
 
 ```bash
