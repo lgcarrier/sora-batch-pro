@@ -260,5 +260,5 @@ export const buildDownloadFilename = (
     sanitizeFilenamePart(resolved.postInfo.title) ||
     `download_${Date.now()}`;
 
-  return `Sora_${baseId}${asset.suffix}.${asset.extension}`;
+  return `${baseId}${asset.suffix}.${asset.extension}`;
 };
