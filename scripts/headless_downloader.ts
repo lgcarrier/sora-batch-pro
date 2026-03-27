@@ -1,52 +1,46 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import {
+    buildDownloadFilename,
+    getDownloadAsset,
+    isSupportedSoraInput,
+    normalizeSoraInput,
+    resolveSoraVideo,
+} from '../services/dyysyService.ts';
 
 const INPUT_FILE = path.join(process.cwd(), 'sora_movies.txt');
 const DOWNLOAD_DIR = path.join(process.cwd(), 'downloads');
-const DYYSY_CDN_BASE = "https://oscdn2.dyysy.com/MP4";
 
 // Ensure download directory exists
 if (!fs.existsSync(DOWNLOAD_DIR)) {
     fs.mkdirSync(DOWNLOAD_DIR);
 }
 
-const extractId = (url: string): string | null => {
-    // Try matching standard share URL format: .../p/ID
-    const matchP = url.match(/\/p\/([a-zA-Z0-9_\-]+)/);
-    if (matchP) return matchP[1];
-
-    // Try matching direct CDN URL format: .../MP4/ID.mp4
-    const matchCDN = url.match(/\/MP4\/([a-zA-Z0-9_\-]+)\.mp4/);
-    if (matchCDN) return matchCDN[1];
-
-    return null;
-};
-
 const downloadVideo = async (url: string) => {
-    const id = extractId(url);
-    if (!id) {
-        console.error(`❌ Could not extract ID from URL: ${url}`);
+    const normalizedInput = normalizeSoraInput(url);
+    if (!normalizedInput || !isSupportedSoraInput(normalizedInput)) {
+        console.error(`❌ Unsupported Sora input: ${url}`);
         return;
     }
 
-    const cdnUrl = `${DYYSY_CDN_BASE}/${id}.mp4`;
-    const outputPath = path.join(DOWNLOAD_DIR, `Sora_${id}.mp4`);
-
-    if (fs.existsSync(outputPath)) {
-        console.log(`⏭️  Skipping existing file: ${id}`);
-        return;
-    }
-
-    console.log(`⬇️  Downloading ${id}...`);
+    console.log(`🔎 Resolving via Dyysy backend: ${normalizedInput}`);
 
     try {
-        const response = await fetch(cdnUrl);
+        const resolved = await resolveSoraVideo(normalizedInput);
+        const asset = getDownloadAsset(resolved, 'mp4');
+        const outputPath = path.join(DOWNLOAD_DIR, buildDownloadFilename(resolved, 'mp4'));
+        const label = resolved.mediaId || normalizedInput;
 
-        if (response.status === 404) throw new Error("File not found on CDN (404)");
+        if (fs.existsSync(outputPath)) {
+            console.log(`⏭️  Skipping existing file: ${path.basename(outputPath)}`);
+            return;
+        }
+
+        console.log(`⬇️  Downloading ${label}...`);
+
+        const response = await fetch(asset.url);
+
+        if (response.status === 404) throw new Error("File not found on resolved media URL (404)");
         if (!response.ok) throw new Error(`Network error (${response.status})`);
 
         const arrayBuffer = await response.arrayBuffer();
@@ -57,10 +51,10 @@ const downloadVideo = async (url: string) => {
         }
 
         fs.writeFileSync(outputPath, buffer);
-        console.log(`✅ Success: ${id} (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
+        console.log(`✅ Success: ${path.basename(outputPath)} (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
 
     } catch (error: any) {
-        console.error(`❌ Error downloading ${id}: ${error.message}`);
+        console.error(`❌ Error downloading ${normalizedInput}: ${error.message}`);
     }
 };
 
